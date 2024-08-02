@@ -1,0 +1,6 @@
+---
+- name: Installing PostgreSQL with ansible role
+  hosts: all
+  become: true
+  roles:
+    - postgresql-role

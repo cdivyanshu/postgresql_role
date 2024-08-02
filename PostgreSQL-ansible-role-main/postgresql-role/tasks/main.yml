@@ -1,0 +1,46 @@
+- name: Add PostgreSQL APT repository key
+  apt_key:
+    url: "{{ postgresql_apt_key_url }}"
+    state: present
+
+- name: Add PostgreSQL APT repository
+  apt_repository:
+    repo: "{{ postgresql_apt_repository }}"
+    state: present
+
+- name: Update APT cache
+  apt:
+    update_cache: yes
+
+- name: Install PostgreSQL
+  apt:
+    name: "postgresql-{{ postgresql_version }}"
+    state: present
+
+- name: Configure PostgreSQL to listen on all addresses
+  lineinfile:
+    path: "/etc/postgresql/{{ postgresql_version }}/main/postgresql.conf"
+    regexp: "^#listen_addresses = 'localhost'"
+    line: "listen_addresses = '{{ postgresql_listen_addresses }}'"
+    state: present
+  notify: Restart PostgreSQL service
+
+- name: Update line in pg_hba.conf
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf
+    regexp: '^host\s+all\s+all\s+127\.0\.0\.1/32\s+md5$'
+    line: 'host    all             all             all                     md5'
+    backup: yes
+  notify: Restart PostgreSQL service
+
+- name: Ensure PostgreSQL service is enabled and started
+  systemd:
+    name: "{{ postgresql_service_name }}"
+    enabled: yes
+    state: started
+
+- name: Set password for the default PostgreSQL user
+  command: sudo -u postgres psql -c "ALTER USER {{ db_user }} WITH PASSWORD '{{ db_password }}';"
+
+- name: Create Database if it does not exist
+  command: sudo -u postgres psql -c "CREATE DATABASE {{ db_name }};"
